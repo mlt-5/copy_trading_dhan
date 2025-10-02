@@ -1,0 +1,24 @@
+# Copy Trading System - Python Dependencies
+
+# DhanHQ SDK (pinned to known-good version, avoid yanked 2.1.0)
+dhanhq==2.0.2
+
+# Timezone support for market hours validation
+pytz>=2023.3
+
+# No additional dependencies required - using Python standard library for:
+# - sqlite3 (built-in)
+# - logging (built-in)
+# - json (built-in)
+# - time (built-in)
+# - dataclasses (built-in in Python 3.7+)
+# - typing (built-in)
+
+# Optional: For development/testing
+# pytest==7.4.3
+# pytest-cov==4.1.0
+# black==23.12.1
+# flake8==6.1.0
+# mypy==1.7.1
+
+
