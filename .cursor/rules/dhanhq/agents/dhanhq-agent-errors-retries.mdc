@@ -1,0 +1,32 @@
+---
+description: Agent Requested rule - DhanHQ v2 Errors, Retries, Rate Limits, Circuit Breaking
+---
+
+## DhanHQ v2 Errors, Retries & Limits (Agent)
+
+- Source of truth: @docs_links.txt. Parse API error shape and codes.
+
+### Error Handling
+- Map `errorType`, `errorCode`, `errorMessage` to typed errors with hints.
+- Treat 4xx vs 5xx differently; redact PII and tokens when logging.
+
+### Retries & Rate Limits
+- Retry only idempotent calls on transient errors with exponential backoff + jitter.
+- Respect 429; honor `Retry-After` or documented cooldowns; throttle client-side.
+- Add circuit breaker around flapping dependencies.
+
+### HTTP Client
+- Default timeout and descriptive User-Agent; structured logs with correlation ids.
+
+Use docs for exact rate tiers and any per-endpoint quotas.
+
+### Pagination Backoff & Caps
+- For paginated endpoints, backoff between pages if the docs recommend; respect server-imposed caps.
+
+### Changelog & Migrations
+- Monitor the docs’ Releases; update schemas and remove deprecated fields promptly.
+- Add migration notes when stored data or request builders change.
+
+### Audit & Compliance
+- Produce structured, redacted logs for trading actions with timestamps and request ids.
+- Retain only the minimum data required for audit, per compliance guidance.

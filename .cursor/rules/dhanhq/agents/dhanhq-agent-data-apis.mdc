@@ -1,0 +1,32 @@
+---
+description: Agent Requested rule - DhanHQ v2 Instruments, Quotes, Historical, Option Chain
+---
+
+## DhanHQ v2 Data APIs (Agent)
+
+- Source of truth: @docs_links.txt. Use canonical identifiers and endpoint limits.
+
+### Instruments & Symbols
+- Fetch instrument metadata; cache with TTL; handle expiries/symbol changes.
+- Validate exchange+segment combos per docs (NSE-EQ, NSE-FO, BSE-EQ, MCX, CDS, etc.).
+
+### Quotes & Snapshots
+- Implement LTP/Quote/Market Depth per docs; respect max instruments per call.
+- Chunk and merge requests; normalize precision to tick sizes.
+
+### Historical Data
+- Daily and intraday OHLC; validate ranges and required params; parse timezone.
+- Backoff on large spans; paginate when cursors/pages are returned.
+
+### Option Chain & Derivatives
+- Use filters by expiry, strike, option type; do not guess greeks unless provided.
+
+Confirm exact params, limits, and response fields from the docs.
+
+### Portfolio APIs (Positions, Holdings, Funds)
+- Fetch positions/holdings/funds per docs; normalize fields (avg price, realized/unrealized P&L).
+- Guard against missing/null fields; ensure types and numeric conversions are safe.
+
+### Pagination & Filtering
+- Honor server limits and pagination (cursor/page); cap iterations and aggregate results.
+- Provide filters per docs (date range, exchange/segment) and validate before requests.

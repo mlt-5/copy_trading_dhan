@@ -1,0 +1,143 @@
+---
+description: DhanHQ v2 integration guardrails, checklists, and prompts for this repo
+globs: ["**/*"]
+alwaysApply: true
+---
+
+## DhanHQ v2 Integration Rule
+
+- Source of truth for all specs: @docs_links.txt
+- Treat the docs as authoritative for auth headers, base URLs, request/response schemas, rate limits, websocket topics, and error codes.
+- Never guess values; when uncertain, open the link from `@docs_links.txt` and verify.
+
+### High-level principles
+- Centralize DhanHQ configuration (base URLs, headers, timeouts, retry policy) in a single config module.
+- Strongly type payloads and responses; surface exhaustive enums for order types, products, validity/TIF, and exchange symbols/instruments.
+- Validate inputs before hitting the API; fail fast with actionable errors.
+- Protect secrets and tokens with environment variables; never commit secrets.
+- Implement rate limiting, retry with jitter, and circuit breaking to respect API constraints.
+- Prefer idempotent operations for order placement if the API supports an idempotency key.
+- Add structured logging, redacting tokens and PII.
+
+### Authentication
+- Fetch exact auth mechanisms and header names from the docs via `@docs_links.txt`.
+- Define constants for required headers and token schemes in one place (e.g., `DHAN_AUTH_HEADER`, `DHAN_TOKEN_PREFIX`).
+- Support token rotation without deploy (read from env at runtime); document the rotation runbook.
+
+Expected environment variables (names are examples; verify exact requirements in docs):
+- `DHAN_API_BASE_URL`
+- `DHAN_API_TOKEN` or `DHAN_ACCESS_TOKEN`
+- Optional: `DHAN_WS_URL` for market data streaming if applicable
+
+### Environments
+- If the docs provide sandbox vs production endpoints, expose both as explicit config with a single switch (e.g., `DHAN_ENV=prod|sandbox`).
+- Keep environment-specific base URLs out of code; use env/config only.
+
+### HTTP client standards
+- Set a default timeout (e.g., 10s) and a user agent string that identifies this app.
+- Retries: enable limited retries for idempotent requests on transient errors (connection resets, 429, 5xx). Use exponential backoff with jitter.
+- Rate limiting: throttle requests per the docs’ stated limits; queue overflow rather than burst.
+- Error parsing: map HTTP and API-level error codes to typed errors with remediation hints.
+
+### Orders API (place/modify/cancel)
+- Read the required and optional fields from the docs; define a strongly-typed request model:
+  - Side (BUY/SELL)
+  - Instrument identifier (symbol, token, or exchange-specific ID per docs)
+  - Quantity and price fields (market, limit, stop/stop-limit specifics)
+  - Product type (e.g., CNC/MIS/NRML per the broker’s taxonomy)
+  - Validity/TIF (DAY/IOC/GTT if supported) and trigger price as applicable
+  - Disclosed quantity, bo/co legs if supported in v2 (verify)
+- Validate combinations (e.g., trigger price required for SL/SL-L; no price for pure MARKET).
+- Capture and store the order ID from responses for subsequent status/modify/cancel.
+
+### Positions, holdings, funds
+- Mirror the docs’ shapes into typed models.
+- Normalize fields (e.g., average price, realized/unrealized P&L) and guard against missing/null fields.
+
+### Market data (WebSocket/streaming)
+- Get the exact WS endpoint, auth flow, and subscription topics from the docs.
+- Implement: connect → authenticate (if required) → subscribe → handle heartbeats → resubscribe after reconnect.
+- Backoff reconnects with caps; detect stale connections via ping/pong or heartbeat intervals specified in the docs.
+- Parse tick structures into typed events (LTP, depth/marketbook levels, OHLC if provided) and validate numeric conversions.
+
+### Rate limits and usage policy
+- Implement client-side rate limiting aligned with docs.
+- Handle `429 Too Many Requests` by respecting `Retry-After` or documented cooldowns.
+
+### Idempotency and de-duplication
+- If idempotency keys are supported for order placement/modify, generate and pass a stable key per user-intent action.
+- De-duplicate streaming updates using sequence numbers or timestamps where available.
+
+### Time and clock sync
+- Use a monotonic clock in-process and NTP sync on hosts for accurate timestamps.
+- If the API exposes server time, periodically compare and log drift.
+
+### Testing strategy
+- Unit-test request builders and response mappers against fixtures aligned to the docs.
+- If a sandbox is available, create integration tests that place a tiny order and cancel it, asserting status transitions from responses.
+- Mock streaming with recorded frames to verify parsers and backoff logic.
+
+### Security and secrets
+- Load secrets from environment variables or secure secret managers only.
+- Redact tokens in logs; never print or store full headers.
+- Scope tokens to the minimum permissions necessary, if the platform supports scopes.
+
+### Operational runbooks
+- Token rotation: steps to update `DHAN_API_TOKEN` with zero downtime.
+- Incident handling: backoff on 5xx bursts; raise alerts on consecutive failures over SLO thresholds.
+- Change management: when the docs change, bump config/schema versions and add migrations for stored data if needed.
+
+### Developer prompts (to use in Chats)
+- "Open @docs_links.txt and confirm Dhan v2 auth header names and base URLs."
+- "Generate TypeScript types for the Orders API request/response using the latest specs."
+- "Create a WebSocket client with reconnect and heartbeat handling per the docs."
+- "Add a rate limiter at X req/sec based on the docs, with burst of Y and queue length Z."
+
+### Implementation checklist
+- [ ] Confirm base URLs and auth headers from `@docs_links.txt` and set config constants
+- [ ] Define typed models for orders, positions, holdings, funds, and errors
+- [ ] Implement HTTP client with timeout, retries, and rate limiting
+- [ ] Implement order place/modify/cancel with validation and idempotency (if supported)
+- [ ] Implement streaming client with heartbeat and backoff
+- [ ] Add unit/integration tests and sanitize logs
+
+Note: This rule intentionally references `@docs_links.txt` instead of inlining values to avoid drift and ensure the latest official documentation is consulted at development time.
+
+
+### Additional coverage from docs (verify via @docs_links.txt)
+- Instruments & symbols
+  - Use docs’ canonical identifiers (e.g., `securityId`/token as specified) across APIs.
+  - Add instrument metadata fetch and local cache with TTL; handle expiries and symbol changes.
+  - Validate exchange + segment combinations per docs (e.g., NSE-EQ, NSE-FO, BSE-EQ, MCX, CDS).
+- Quotes & snapshots
+  - Implement LTP, Quote (incl. OI where applicable), and Market Depth retrieval.
+  - Batch quote requests respecting max instruments per call; chunk and merge results.
+  - Normalize numeric precision per exchange tick sizes.
+- Historical data
+  - Support daily and intraday OHLC with required params; validate date ranges and limits.
+  - Use `securityId`/exchange identifiers per docs; parse timezone correctly.
+  - Backoff on large range requests; paginate if the API returns cursors/pages.
+- Margins & risk
+  - Fetch margin requirements, leverage, exposure per product; surface insufficient-margin errors.
+  - Pre-validate order margin where the API supports it; present user-facing hints.
+- Option chain & derivatives
+  - Implement option chain endpoints with filters by expiry, strike, option type.
+  - Compute greeks only if provided; otherwise do not guess—show raw values from API.
+  - Respect instrument availability (index vs stock options) and exchange rules.
+- Order lifecycle & webhooks/callbacks
+  - Document order status transitions from placement to complete/cancel/reject; map to typed enums.
+  - If webhooks or push order updates exist, document signature/auth and implement verification.
+  - Ensure idempotent processing of duplicate callbacks using event ids/sequence numbers.
+- Pagination & filtering
+  - Where list endpoints are paginated, implement cursor/page params and robust iteration with caps.
+  - Honor server `limit`/`offset` constraints; do not client-side over-fetch.
+- Releases & breaking changes
+  - Monitor docs’ Releases/Changelog; annotate removed/renamed fields and new endpoints.
+  - Remove deprecated request keys when the docs deprecate them; add migration notes.
+- Subscriptions & billing (if applicable per docs)
+  - Respect any subscription-level quotas; implement feature flags for data APIs if needed.
+- Compliance & auditability
+  - Keep audit logs of trading actions with request/response redactions and timestamps.
+  - Time-sync and capture server time for reconciliation if provided by the API.
+
+

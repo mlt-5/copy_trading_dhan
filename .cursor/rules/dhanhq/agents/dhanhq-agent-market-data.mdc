@@ -1,0 +1,30 @@
+---
+description: Agent Requested rule - DhanHQ v2 Market Data WebSocket (connect, auth, subscribe)
+---
+
+## DhanHQ v2 Market Data WS (Agent)
+
+- Source of truth: @docs_links.txt. Verify WS URL, auth flow, topics, heartbeats.
+
+### Client Behavior
+- Connect → authenticate (if required) → subscribe → handle heartbeats/ping-pong.
+- Detect stale links; backoff reconnects with jitter and cap; resubscribe on reconnect.
+- Validate and parse tick packets to typed events (LTP, quote, depth, OHLC if provided).
+- De-duplicate frames using sequence/timestamp when available.
+
+### Reliability
+- Buffer outbound subs during reconnect; flush after reauth.
+- Guard against message floods; drop late/stale ticks beyond tolerance.
+
+Confirm payload formats, subscription commands, and heartbeat intervals from docs.
+
+### Topics & Payloads
+- Confirm available topics (e.g., LTP/Quote/Depth/Option data) and packet variants from docs before implementation.
+- Validate numeric precision against tick sizes; normalize fields.
+
+### Latency & Heartbeats
+- Track heartbeat/ping intervals from docs; treat missed heartbeats as stale and reconnect with backoff.
+- Measure end-to-end latency; drop frames older than tolerated staleness.
+
+### Order/Portfolio Streams (if available)
+- If WS includes order/portfolio channels, authenticate, subscribe, and route updates to the orders/portfolio modules.

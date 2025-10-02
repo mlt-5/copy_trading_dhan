@@ -1,0 +1,125 @@
+---
+description: Agent Requested rule - Python usage of DhanHQ v2 SDK from PyPI
+globs: ["**/*.py"]
+---
+
+## DhanHQ Python SDK Usage (Agent)
+
+- Source of truth: @docs_links.txt and `https://pypi.org/project/dhanhq/`.
+- Pin a known-good SDK release; avoid yanked or breaking versions per PyPI release notes.
+
+### Installation & Versioning
+- Install with: `pip install dhanhq`.
+- Prefer explicit pin (example): `pip install "dhanhq==2.0.2"` (note: 2.1.0 was yanked per PyPI).
+- Record dependency in `requirements.txt` or your environment manager; avoid implicit upgrades.
+
+### Client Initialization
+```python
+from dhanhq import dhanhq
+
+dhan = dhanhq("client_id", "access_token")
+```
+- Read creds from environment at runtime (do not hardcode). Keep alignment with HTTP auth header rules in @dhanhq-agent-auth.
+- For multi-env setups, configure sandbox vs production via env vars and inject into init paths or helper factories.
+
+### Orders (place/modify/cancel, list)
+- Place: `dhan.place_order(...)` with exact fields per SDK docs (e.g., `security_id`, `exchange_segment`, `transaction_type`, `quantity`, `order_type`, `product_type`, `price`).
+- Modify: use SDK’s `modify_order(...)`. Breaking change in v2: `quantity` is total placed quantity; validate per docs.
+- Cancel: `dhan.cancel_order(order_id)`.
+- Fetch: `dhan.get_order_list()`, `dhan.get_order_by_id(order_id)`, and by correlation id (note: naming moved to `get_order_by_correlationID`).
+- Forever Orders (Single/OCO): use SDK functions for place/modify/delete; verify args against docs.
+
+### Portfolio & Funds
+- Positions: `dhan.get_positions()`.
+- Holdings: `dhan.get_holdings()`.
+- Funds: `dhan.get_fund_limits()`; normalize numeric fields and handle nulls.
+
+### Market Quotes (REST snapshots)
+- Use SDK functions for LTP, Quote (with OI), and Market Depth, including batching up to documented limits.
+- Example: `dhan.ohlc_data(securities={"NSE_EQ": [1333]})` for snapshot OHLC per docs.
+- Respect max instruments per call; chunk and merge.
+
+### Instruments & Expiry Helpers
+- Instrument list: `dhan.fetch_security_list("compact")` (confirm modes per SDK/docs) and cache with TTL.
+- Expiry list: `dhan.expiry_list(under_security_id=..., under_exchange_segment=...)` for derivatives filters.
+
+### Historical Data
+- Intraday: `dhan.intraday_minute_data(security_id, exchange_segment, instrument_type)` (last 5 trading days across timeframes per docs).
+- Daily: `dhan.historical_daily_data(security_id, exchange_segment, instrument_type, expiry_code, from_date, to_date)`; v2 uses EPOCH time and `security_id`.
+- Validate ranges; back off/paginate where applicable.
+
+### Time Utilities
+- Use SDK helpers like `dhan.convert_to_date_time(epoch)` where applicable; ensure timezone correctness.
+
+### Option Chain
+- `dhan.option_chain(under_security_id, under_exchange_segment, expiry)`; consume greeks only if provided; avoid computing locally unless specified.
+
+### Trade Book & History
+- Trade book: `dhan.get_trade_book(order_id)`.
+- History: `dhan.get_trade_history(from_date, to_date, page_number=0)`; implement pagination caps and filters per docs.
+
+### Margin & Kill Switch
+- Margin calculator: prefer official SDK function if provided; validate pre-trade when available.
+- Kill switch: invoke SDK endpoint per docs; log action with audit context.
+
+### eDIS (CDSL) Flow
+- Generate TPIN: `dhan.generate_tpin()`.
+- Open browser for TPIN: `dhan.open_browser_for_tpin(isin=..., qty=..., exchange=...)`.
+- Inquiry: `dhan.edis_inquiry()`.
+
+### WebSockets - Market Feed
+```python
+from dhanhq import marketfeed
+
+instruments = [
+    (marketfeed.NSE, "1333", marketfeed.Ticker),
+]
+version = "v2"
+data = marketfeed.DhanFeed(client_id, access_token, instruments, version)
+data.run_forever()
+```
+- Topics: Ticker, Quote, Full; confirm exact packet shapes per docs.
+- Support subscribe/unsubscribe while connected; handle reconnects with backoff and resubscribe.
+- Ensure graceful shutdown: call `.disconnect()` in finally blocks; close tasks/threads cleanly.
+
+### WebSockets - Live Order Updates
+```python
+from dhanhq import orderupdate
+
+order_client = orderupdate.OrderSocket(client_id, access_token)
+order_client.connect_to_dhan_websocket_sync()
+```
+- Reconnect with backoff; process updates idempotently using event id/sequence.
+- Route updates to the order lifecycle handler.
+
+### Error Handling & Retries in Python
+- Wrap SDK calls in try/except; map SDK exceptions to actionable errors; redact tokens.
+- For idempotent reads, add bounded retries on transient failures; respect 429 and Retry-After.
+- Log structured context (operation, security_id, exchange_segment) without PII.
+
+### Client-Side Rate Limiting
+- For loops/batches, add small sleeps or token-bucket throttling to comply with docs’ limits.
+- Surface backoff suggestions when 429 occurs; avoid tight retry loops.
+
+### Testing
+- Unit test wrappers around SDK calls using fixtures/mocks; do not hit live APIs in unit tests.
+- If sandbox exists, run minimal E2E: place tiny order then cancel; assert status transitions.
+
+### Logging & Telemetry
+- Add structured logs for each SDK call (operation name, duration, status). Redact secrets.
+- Emit metrics for success/error rates and latency; alert on consecutive failures.
+
+### Type-Safe Wrappers
+- Wrap SDK calls in thin adapters that validate enums (exchange_segment, order_type, product_type) before invoking.
+- Centralize conversions (e.g., string → enum) and numeric normalization (tick size, precision).
+
+### Version Upgrade Guidance
+- Monitor PyPI release notes for breaking changes (e.g., `quantity` semantics, time formats, function renames like correlation ID).
+- Gate upgrades; run compatibility tests before bumping versions.
+
+Always verify exact parameters, enums, and limits via @docs_links.txt and the installed SDK version’s documentation.
+
+### Environment Variables (example names; verify via docs)
+- `DHAN_CLIENT_ID`, `DHAN_ACCESS_TOKEN`
+- Optional: `DHAN_ENV`, `DHAN_API_BASE_URL`, `DHAN_WS_URL`
+

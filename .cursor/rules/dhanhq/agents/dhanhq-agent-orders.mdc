@@ -1,0 +1,34 @@
+---
+description: Agent Requested rule - DhanHQ v2 Orders (place/modify/cancel) and validation
+---
+
+## DhanHQ v2 Orders (Agent)
+
+- Source of truth: @docs_links.txt. Use exact request/response shapes and enums.
+
+### Request Model
+- Side (BUY/SELL), instrument identifier per docs (e.g., `securityId`), quantity, price fields.
+- Product (CNC/MIS/NRML etc.), validity/TIF (DAY/IOC/… as supported), trigger price for SL types.
+- Forever/OCO specifics if supported; verify deprecations in Releases.
+
+### Validation
+- MARKET orders: no price. SL/SL-L: trigger required and validated vs price bands.
+- Modify: pass total quantity as per docs; check exchange/state constraints.
+- Idempotency: if supported, send a stable key per user-intent.
+
+### Lifecycle & Handling
+- Capture order id; poll or subscribe for status until terminal state.
+- Map statuses to typed enums; handle rejects with actionable messages.
+
+Always confirm field names, deprecated keys, and endpoint paths from docs.
+
+### Order Updates & Webhooks (if provided)
+- If push order updates exist (WS/webhooks), verify auth/signature per docs and validate payloads.
+- De-duplicate using event ids/sequence; implement retry/ack rules as specified.
+
+### Kill Switch & Trade History
+- Implement endpoints for kill switch and trade history as per docs; ensure proper auth and audit logging.
+- Handle pagination for history; cap iterations; provide filters by date/time if supported.
+
+### Releases & Deprecations
+- Monitor Releases/Changelog; remove deprecated fields and migrate to new endpoints as instructed.

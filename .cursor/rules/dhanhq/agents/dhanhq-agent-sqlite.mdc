@@ -1,0 +1,133 @@
+---
+description: Agent Requested rule - SQLite v3 usage for DhanHQ v2 local cache, audit, and resilience
+---
+
+## SQLite v3 Rules for DhanHQ v2 (Agent)
+
+- Sources: `@docs_links.txt`, `https://pypi.org/project/dhanhq/`.
+- Purpose: durable local cache, offline resilience, and audit trail of DhanHQ interactions.
+
+### When to Persist
+- Orders: requests/responses, lifecycle updates, rejects, trade fills.
+- Portfolio: positions, holdings snapshots with timestamps.
+- Market data (optional): sampled quotes/ticks within retention limits; avoid full-tick firehose.
+- Historical fetches: store candles with primary keys to prevent duplicates.
+- Config & versions: SDK version, API base URLs, feature flags for reproducibility.
+
+### Core Schemas (proposed)
+- orders(id TEXT PRIMARY KEY, correlation_id TEXT, status TEXT, side TEXT, product TEXT, order_type TEXT, validity TEXT, security_id TEXT, exchange_segment TEXT, quantity INTEGER, price REAL, trigger_price REAL, created_at INTEGER, updated_at INTEGER)
+- order_events(id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT, event_type TEXT, raw JSON, event_ts INTEGER, seq INTEGER, UNIQUE(order_id, seq))
+- trades(id TEXT PRIMARY KEY, order_id TEXT, trade_ts INTEGER, quantity INTEGER, price REAL, raw JSON)
+- positions(snapshot_ts INTEGER, security_id TEXT, exchange_segment TEXT, quantity INTEGER, avg_price REAL, realized_pl REAL, unrealized_pl REAL, raw JSON, PRIMARY KEY(snapshot_ts, security_id, exchange_segment))
+- holdings(snapshot_ts INTEGER, isin TEXT, symbol TEXT, quantity INTEGER, avg_price REAL, raw JSON, PRIMARY KEY(snapshot_ts, isin))
+- funds(snapshot_ts INTEGER, balance REAL, margin_used REAL, collateral REAL, raw JSON, PRIMARY KEY(snapshot_ts))
+- instruments(security_id TEXT PRIMARY KEY, exchange_segment TEXT, symbol TEXT, tick_size REAL, lot_size INTEGER, meta JSON, updated_at INTEGER)
+- candles(security_id TEXT, timeframe TEXT, ts INTEGER, o REAL, h REAL, l REAL, c REAL, v REAL, PRIMARY KEY(security_id, timeframe, ts))
+- option_chain(snapshot_ts INTEGER, under_security_id TEXT, expiry TEXT, strike REAL, option_type TEXT, oi INTEGER, iv REAL, greeks JSON, top_bid REAL, top_ask REAL, last_price REAL, PRIMARY KEY(snapshot_ts, under_security_id, expiry, strike, option_type))
+- config(key TEXT PRIMARY KEY, value TEXT)
+- audit(id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT, request JSON, response JSON, status_code INTEGER, ts INTEGER)
+
+Note: adjust fields strictly per `@docs_links.txt`; above are placeholders for shape.
+
+### Indices
+- CREATE INDEX IF NOT EXISTS idx_order_events_order_ts ON order_events(order_id, event_ts);
+- CREATE INDEX IF NOT EXISTS idx_trades_order ON trades(order_id);
+- CREATE INDEX IF NOT EXISTS idx_candles_lookup ON candles(security_id, timeframe);
+- CREATE INDEX IF NOT EXISTS idx_positions_ts ON positions(snapshot_ts);
+
+### Data Integrity
+- Use transactions for multi-row writes (BEGIN IMMEDIATE ... COMMIT).
+- Enforce foreign keys (PRAGMA foreign_keys = ON).
+- For streaming updates, upsert by (order_id, seq). Drop duplicates by UNIQUE.
+- Normalize numeric precision per tick size in instruments.
+
+### Migrations
+- Maintain schema version in `config` (key: `schema_version`).
+- Apply forward-only migrations via numbered SQL files; back up DB before migrating.
+- Never destructive-drop without moving old tables to `deleted_YYYYMMDD_*` inside the DB or exporting.
+
+### Retention
+- Orders/trades/audit: retain long-term; trim raw payloads older than N days if storage-bound.
+- Market data samples: retain rolling window; avoid indefinite growth.
+- Candles/option chain: keep until superseded or per business need.
+
+### Concurrency & Performance
+- Enable WAL mode: `PRAGMA journal_mode = WAL` for concurrent reads.
+- Set `synchronous = NORMAL` or `FULL` per durability needs.
+- Batch inserts for candles/chain; use prepared statements.
+
+### Connection Management
+- Use a single connection per process or a bounded pool if using multiple threads; reuse prepared statements.
+- Set `busy_timeout` (e.g., 5000 ms) and retry on `SQLITE_BUSY` with jitter; avoid unbounded retries.
+- Close cursors promptly; commit/rollback transactions deterministically.
+
+### Backups & Encryption
+- Periodic logical backups: copy DB during a checkpoint, or use `VACUUM INTO` where supported.
+- If encryption is required, prefer OS-level disk encryption or SQLite extensions (Document choice and keys outside the repo).
+
+### Maintenance
+- Schedule `VACUUM` during low-traffic windows; `ANALYZE` after large ingestions; `PRAGMA optimize` periodically.
+- Run `PRAGMA wal_checkpoint(TRUNCATE)` occasionally to bound WAL size.
+
+### JSON Handling
+- Store raw API payloads in `TEXT` columns as JSON; validate on write.
+- For frequent filters, project normalized columns rather than querying JSON repeatedly.
+
+### Triggers & Change Capture
+- Add triggers to auto-insert into `audit` on writes to `orders`/`trades`.
+- Consider a simple CDC table capturing table, row id, op, and ts for reconciliation pipelines.
+
+### Error Handling
+- Classify DB errors (constraint violation, busy/locked, IO) and respond accordingly.
+- Wrap transactional units; ensure idempotent retries for upsert operations.
+
+### Testing
+- Provide seed migrations for test DB; use ephemeral DB files per test run.
+- Include fixtures for orders, trades, candles; validate unique/index constraints and performance.
+
+### Environment & Paths
+- Configure DB path via env (e.g., `DHAN_SQLITE_PATH`); default under app data directory.
+- Separate prod/sandbox DBs; avoid sharing files across environments.
+
+### Security & PII
+- Do not store full auth headers or tokens; redact before persisting `audit`/`order_events`.
+- If storing client identifiers, hash or tokenize where possible.
+
+### Sync & Reconciliation
+- Compare local state with server (positions/holdings/funds) periodically; resolve drift.
+- For orders, reconcile terminal states; re-fetch from API on gaps.
+
+### Rate Limits & Backoff
+- For backfills (candles, trade history), throttle per docs; sleep between pages.
+- On 429 or server rate-limit signals, persist the next-at timestamp and resume later.
+
+### Example DDL Snippets
+```sql
+PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY,
+  correlation_id TEXT,
+  status TEXT,
+  side TEXT,
+  product TEXT,
+  order_type TEXT,
+  validity TEXT,
+  security_id TEXT,
+  exchange_segment TEXT,
+  quantity INTEGER,
+  price REAL,
+  trigger_price REAL,
+  created_at INTEGER,
+  updated_at INTEGER
+);
+```
+
+### Operational Guidance
+- Back up DB files before upgrades; verify integrity with `PRAGMA integrity_check`.
+- Keep file paths configurable; support rotation (archive old DBs by date).
+- Document restore/runbooks for corrupted DB scenarios.
+
+Cross-check all shapes and enumerations with `@docs_links.txt` and the SDK behaviors from `https://pypi.org/project/dhanhq/` before finalizing schemas.
+

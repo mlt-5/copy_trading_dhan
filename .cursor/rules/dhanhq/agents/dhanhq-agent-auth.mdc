@@ -1,0 +1,26 @@
+---
+description: Agent Requested rule - DhanHQ v2 Authentication and configuration
+---
+
+## DhanHQ v2 Auth & Config (Agent)
+
+- Source of truth: @docs_links.txt. Verify exact header names, token scheme, and base URLs.
+- Do not inline secrets or guess values; pull from environment at runtime.
+
+### Requirements
+- Define constants for auth header names and token prefix in one module.
+- Read tokens from env (e.g., `DHAN_API_TOKEN`), supporting hot rotation without redeploy.
+- Set `DHAN_API_BASE_URL` and optional `DHAN_WS_URL` from env/config per environment.
+- Redact tokens in logs; never print full headers.
+
+### Implementation Notes
+- Add a default HTTP timeout and a distinct User-Agent for this app.
+- Centralize axios/fetch configuration: baseURL, headers, retry/backoff, and error parsing.
+- Confirm sandbox vs production base URLs from docs before use.
+
+Use the docs for exact header key and any additional required headers.
+
+### Rotation, Environments, Subscription
+- Document a token rotation runbook; read token from env at runtime without restart if possible.
+- Expose an env/config switch for sandbox vs production; never inline base URLs in code.
+- If Data APIs require a subscription/licensing, verify entitlement per docs and guard features behind config flags.
