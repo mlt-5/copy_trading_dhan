@@ -125,16 +125,29 @@ class DatabaseManager:
         """
         self.conn.execute("""
             INSERT OR REPLACE INTO orders (
-                id, account_type, correlation_id, status, side, product, order_type,
-                validity, security_id, exchange_segment, quantity, price, trigger_price,
-                disclosed_qty, created_at, updated_at, raw_request, raw_response
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, account_type, correlation_id, status, order_status, side, product, order_type,
+                validity, security_id, exchange_segment, trading_symbol, quantity, price, trigger_price,
+                disclosed_qty, traded_qty, remaining_qty, avg_price, exchange_order_id, exchange_time,
+                algo_id, drv_expiry_date, drv_option_type, drv_strike_price,
+                oms_error_code, oms_error_description,
+                co_stop_loss_value, co_trigger_price, bo_profit_value,
+                bo_stop_loss_value, bo_order_type, parent_order_id, leg_type,
+                after_market_order, amo_time, is_sliced_order, slice_order_id, slice_index, total_slice_quantity,
+                created_at, updated_at, completed_at, raw_request, raw_response
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             order.id, order.account_type, order.correlation_id, order.status,
-            order.side, order.product, order.order_type, order.validity,
-            order.security_id, order.exchange_segment, order.quantity,
+            order.order_status, order.side, order.product, order.order_type, order.validity,
+            order.security_id, order.exchange_segment, order.trading_symbol, order.quantity,
             order.price, order.trigger_price, order.disclosed_qty,
-            order.created_at, order.updated_at, order.raw_request, order.raw_response
+            order.traded_qty, order.remaining_qty, order.avg_price, order.exchange_order_id, order.exchange_time,
+            order.algo_id, order.drv_expiry_date, order.drv_option_type, order.drv_strike_price,
+            order.oms_error_code, order.oms_error_description,
+            order.co_stop_loss_value, order.co_trigger_price, order.bo_profit_value,
+            order.bo_stop_loss_value, order.bo_order_type, order.parent_order_id,
+            order.leg_type, 1 if order.after_market_order else 0, order.amo_time,
+            1 if order.is_sliced_order else 0, order.slice_order_id, order.slice_index, order.total_slice_quantity,
+            order.created_at, order.updated_at, order.completed_at, order.raw_request, order.raw_response
         ))
         self.conn.commit()
         
@@ -266,6 +279,32 @@ class DatabaseManager:
         
         return [Order(**dict(row)) for row in cursor.fetchall()]
     
+    def get_order_by_correlation_id(self, correlation_id: str) -> Optional[Order]:
+        """
+        Get order by correlation ID.
+        
+        Per DhanHQ v2 Orders API:
+        GET /orders/external/{correlation-id}
+        
+        Args:
+            correlation_id: User/partner generated tracking ID
+        
+        Returns:
+            Order object or None (returns most recent if multiple matches)
+        """
+        cursor = self.conn.execute("""
+            SELECT * FROM orders 
+            WHERE correlation_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (correlation_id,))
+        
+        row = cursor.fetchone()
+        
+        if row:
+            return Order(**dict(row))
+        return None
+    
     def update_order_status(self, order_id: str, status: str) -> None:
         """
         Update order status.
@@ -282,6 +321,57 @@ class DatabaseManager:
         self.conn.commit()
         
         logger.debug(f"Updated order {order_id} status to {status}")
+    
+    def save_order_modification(
+        self,
+        order_id: str,
+        modification_type: str,
+        old_value: Optional[str] = None,
+        new_value: Optional[str] = None,
+        status: str = 'PENDING',
+        error_message: Optional[str] = None
+    ) -> None:
+        """
+        Save order modification record.
+        
+        Args:
+            order_id: Order ID being modified
+            modification_type: Type of modification (QUANTITY, PRICE, TRIGGER_PRICE, VALIDITY, ORDER_TYPE)
+            old_value: Previous value (JSON string)
+            new_value: New value (JSON string)
+            status: Modification status (PENDING, SUCCESS, FAILED)
+            error_message: Error message if failed
+        """
+        self.conn.execute("""
+            INSERT INTO order_modifications (
+                order_id, modification_type, old_value, new_value,
+                status, error_message, modified_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            order_id, modification_type, old_value, new_value,
+            status, error_message, int(time.time())
+        ))
+        self.conn.commit()
+        
+        logger.debug(f"Saved modification for order {order_id}: {modification_type}")
+    
+    def get_order_modifications(self, order_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all modifications for an order.
+        
+        Args:
+            order_id: Order ID
+        
+        Returns:
+            List of modification records
+        """
+        cursor = self.conn.execute("""
+            SELECT * FROM order_modifications
+            WHERE order_id = ?
+            ORDER BY modified_at DESC
+        """, (order_id,))
+        
+        return [dict(row) for row in cursor.fetchall()]
     
     # =========================================================================
     # Order Event Operations
@@ -405,6 +495,200 @@ class DatabaseManager:
         self.conn.commit()
         
         logger.debug(f"Updated copy mapping {leader_order_id} status to {status}")
+    
+    # =========================================================================
+    # Trade Operations
+    # =========================================================================
+    
+    def save_trade(self, trade: Trade) -> None:
+        """
+        Save a trade to database.
+        
+        Args:
+            trade: Trade object with all fields from Trade Book API
+        """
+        self.conn.execute("""
+            INSERT OR REPLACE INTO trades (
+                id, order_id, account_type, exchange_order_id, exchange_trade_id,
+                security_id, exchange_segment, trading_symbol,
+                side, product, order_type,
+                quantity, price, trade_value,
+                trade_ts, created_at, updated_at, exchange_time,
+                drv_expiry_date, drv_option_type, drv_strike_price,
+                raw_data
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            trade.id, trade.order_id, trade.account_type,
+            trade.exchange_order_id, trade.exchange_trade_id,
+            trade.security_id, trade.exchange_segment, trade.trading_symbol,
+            trade.transaction_type, trade.product_type, trade.order_type,
+            trade.quantity, trade.price, trade.quantity * trade.price if trade.quantity and trade.price else None,
+            trade.trade_ts, trade.created_at, trade.updated_at, trade.exchange_time,
+            trade.drv_expiry_date, trade.drv_option_type, trade.drv_strike_price,
+            trade.raw_data
+        ))
+        self.conn.commit()
+        
+        logger.debug(f"Saved trade: {trade.id} for order {trade.order_id}")
+    
+    def get_trade_by_id(self, trade_id: str) -> Optional[Trade]:
+        """
+        Get trade by ID.
+        
+        Args:
+            trade_id: Trade ID
+            
+        Returns:
+            Trade object or None
+        """
+        cursor = self.conn.execute("""
+            SELECT * FROM trades WHERE id = ?
+        """, (trade_id,))
+        
+        row = cursor.fetchone()
+        
+        if row:
+            return Trade(**dict(row))
+        return None
+    
+    def get_trades_by_order_id(self, order_id: str) -> List[Trade]:
+        """
+        Get all trades for an order (Trades of an Order).
+        
+        This method implements the database query for the "Trades of an Order" API.
+        API Endpoint: GET /trades/{order-id}
+        Reference: https://dhanhq.co/docs/v2/orders/#trades-of-an-order
+        
+        Critical for:
+        - Tracking partial fills (one order → multiple trades)
+        - Multi-leg orders (BO/CO where each leg has multiple trades)
+        - Order execution analysis
+        
+        Args:
+            order_id: Order ID to get trades for
+            
+        Returns:
+            List of Trade objects ordered by trade_ts (chronological)
+        """
+        cursor = self.conn.execute("""
+            SELECT * FROM trades 
+            WHERE order_id = ? 
+            ORDER BY trade_ts
+        """, (order_id,))
+        
+        return [Trade(**dict(row)) for row in cursor.fetchall()]
+    
+    def get_trades(
+        self,
+        account_type: Optional[str] = None,
+        from_ts: Optional[int] = None,
+        to_ts: Optional[int] = None,
+        security_id: Optional[str] = None,
+        exchange_segment: Optional[str] = None,
+        limit: Optional[int] = None
+    ) -> List[Trade]:
+        """
+        Get trades with optional filters.
+        
+        Args:
+            account_type: Filter by account type ('leader' or 'follower')
+            from_ts: Filter trades from this timestamp
+            to_ts: Filter trades up to this timestamp
+            security_id: Filter by security ID
+            exchange_segment: Filter by exchange segment
+            limit: Maximum number of trades to return
+            
+        Returns:
+            List of Trade objects
+        """
+        conditions = []
+        params = []
+        
+        if account_type:
+            conditions.append("account_type = ?")
+            params.append(account_type)
+        
+        if from_ts:
+            conditions.append("trade_ts >= ?")
+            params.append(from_ts)
+        
+        if to_ts:
+            conditions.append("trade_ts <= ?")
+            params.append(to_ts)
+        
+        if security_id:
+            conditions.append("security_id = ?")
+            params.append(security_id)
+        
+        if exchange_segment:
+            conditions.append("exchange_segment = ?")
+            params.append(exchange_segment)
+        
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        limit_clause = f"LIMIT {limit}" if limit else ""
+        
+        cursor = self.conn.execute(f"""
+            SELECT * FROM trades 
+            {where_clause}
+            ORDER BY trade_ts DESC
+            {limit_clause}
+        """, params)
+        
+        return [Trade(**dict(row)) for row in cursor.fetchall()]
+    
+    def get_trades_summary(
+        self,
+        account_type: str,
+        from_ts: Optional[int] = None,
+        to_ts: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get trades summary with aggregated statistics.
+        
+        Args:
+            account_type: Account type ('leader' or 'follower')
+            from_ts: From timestamp
+            to_ts: To timestamp
+            
+        Returns:
+            Dict with summary statistics
+        """
+        conditions = ["account_type = ?"]
+        params = [account_type]
+        
+        if from_ts:
+            conditions.append("trade_ts >= ?")
+            params.append(from_ts)
+        
+        if to_ts:
+            conditions.append("trade_ts <= ?")
+            params.append(to_ts)
+        
+        where_clause = f"WHERE {' AND '.join(conditions)}"
+        
+        cursor = self.conn.execute(f"""
+            SELECT 
+                COUNT(*) as total_trades,
+                SUM(CASE WHEN side = 'BUY' THEN quantity ELSE 0 END) as total_buy_qty,
+                SUM(CASE WHEN side = 'SELL' THEN quantity ELSE 0 END) as total_sell_qty,
+                SUM(trade_value) as total_value,
+                AVG(price) as avg_price
+            FROM trades
+            {where_clause}
+        """, params)
+        
+        row = cursor.fetchone()
+        
+        if row:
+            return dict(row)
+        
+        return {
+            'total_trades': 0,
+            'total_buy_qty': 0,
+            'total_sell_qty': 0,
+            'total_value': 0,
+            'avg_price': 0
+        }
     
     # =========================================================================
     # Position Operations

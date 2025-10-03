@@ -11,9 +11,9 @@ from typing import Optional, Literal
 @dataclass
 class Order:
     """Represents an order in the database."""
-    id: str
+    id: str  # DhanHQ orderId
     account_type: Literal['leader', 'follower']
-    status: str
+    status: str  # Internal status (PENDING/TRANSIT/OPEN/PARTIAL/EXECUTED/CANCELLED/REJECTED)
     side: str
     product: str
     order_type: str
@@ -26,7 +26,24 @@ class Order:
     disclosed_qty: Optional[int]
     created_at: int
     updated_at: int
+    # Response fields from DhanHQ API
+    traded_qty: int = 0  # Quantity filled (filledQty)
+    remaining_qty: Optional[int] = None  # Remaining quantity (remainingQuantity)
+    avg_price: Optional[float] = None  # Average execution price (averageTradedPrice)
+    exchange_order_id: Optional[str] = None  # Exchange order ID
+    exchange_time: Optional[int] = None  # Exchange timestamp
+    completed_at: Optional[int] = None  # Order completion timestamp
+    trading_symbol: Optional[str] = None  # Trading symbol (e.g., "RELIANCE", "NIFTY24DEC19500CE")
+    algo_id: Optional[str] = None  # Exchange Algo ID for Dhan
+    # Derivatives info (F&O)
+    drv_expiry_date: Optional[int] = None  # For F&O, expiry date of contract (epoch)
+    drv_option_type: Optional[str] = None  # Type of Option: CALL or PUT
+    drv_strike_price: Optional[float] = None  # For Options, Strike Price
+    # Error tracking
+    oms_error_code: Optional[str] = None  # Error code if order is rejected/failed
+    oms_error_description: Optional[str] = None  # Error description if order is rejected/failed
     correlation_id: Optional[str] = None
+    order_status: Optional[str] = None  # DhanHQ orderStatus from API response
     raw_request: Optional[str] = None
     raw_response: Optional[str] = None
     # Cover Order (CO) parameters
@@ -39,6 +56,14 @@ class Order:
     # Multi-leg order tracking
     parent_order_id: Optional[str] = None
     leg_type: Optional[str] = None  # 'ENTRY', 'TARGET', 'SL'
+    # AMO (After Market Order) flags
+    after_market_order: bool = False
+    amo_time: Optional[str] = None  # 'PRE_OPEN', 'OPEN', 'OPEN_30', 'OPEN_60'
+    # Order Slicing tracking
+    is_sliced_order: bool = False  # Order created via slicing API
+    slice_order_id: Optional[str] = None  # Common ID for all orders from same slice request
+    slice_index: Optional[int] = None  # Order number within slice (1, 2, 3, etc.)
+    total_slice_quantity: Optional[int] = None  # Original total quantity before slicing
     
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -47,6 +72,7 @@ class Order:
             'account_type': self.account_type,
             'correlation_id': self.correlation_id,
             'status': self.status,
+            'order_status': self.order_status,
             'side': self.side,
             'product': self.product,
             'order_type': self.order_type,
@@ -57,6 +83,19 @@ class Order:
             'price': self.price,
             'trigger_price': self.trigger_price,
             'disclosed_qty': self.disclosed_qty,
+            'traded_qty': self.traded_qty,
+            'remaining_qty': self.remaining_qty,
+            'avg_price': self.avg_price,
+            'exchange_order_id': self.exchange_order_id,
+            'exchange_time': self.exchange_time,
+            'completed_at': self.completed_at,
+            'trading_symbol': self.trading_symbol,
+            'algo_id': self.algo_id,
+            'drv_expiry_date': self.drv_expiry_date,
+            'drv_option_type': self.drv_option_type,
+            'drv_strike_price': self.drv_strike_price,
+            'oms_error_code': self.oms_error_code,
+            'oms_error_description': self.oms_error_description,
             'co_stop_loss_value': self.co_stop_loss_value,
             'co_trigger_price': self.co_trigger_price,
             'bo_profit_value': self.bo_profit_value,
@@ -64,6 +103,12 @@ class Order:
             'bo_order_type': self.bo_order_type,
             'parent_order_id': self.parent_order_id,
             'leg_type': self.leg_type,
+            'after_market_order': self.after_market_order,
+            'amo_time': self.amo_time,
+            'is_sliced_order': self.is_sliced_order,
+            'slice_order_id': self.slice_order_id,
+            'slice_index': self.slice_index,
+            'total_slice_quantity': self.total_slice_quantity,
             'created_at': self.created_at,
             'updated_at': self.updated_at,
             'raw_request': self.raw_request,
@@ -95,16 +140,48 @@ class OrderEvent:
 
 @dataclass
 class Trade:
-    """Represents a trade execution."""
-    id: str
-    order_id: str
+    """
+    Represents a trade execution from DhanHQ Trade Book API.
+    
+    Covers all fields from GET /trades and GET /trades/{order-id} endpoints.
+    API Reference: https://dhanhq.co/docs/v2/orders/ (Trade Book section)
+    """
+    # Primary identification
+    id: str  # Trade ID (use exchange_trade_id if available)
+    order_id: str  # DhanHQ orderId
     account_type: Literal['leader', 'follower']
-    trade_ts: int
-    quantity: int
-    price: float
-    exchange_segment: Optional[str] = None
-    security_id: Optional[str] = None
-    raw_data: Optional[str] = None
+    
+    # Exchange identifiers
+    exchange_order_id: Optional[str] = None  # exchangeOrderId
+    exchange_trade_id: Optional[str] = None  # exchangeTradeId
+    
+    # Instrument details
+    security_id: str = ''  # securityId
+    exchange_segment: str = ''  # exchangeSegment
+    trading_symbol: Optional[str] = None  # tradingSymbol
+    
+    # Transaction details
+    transaction_type: str = ''  # transactionType (BUY/SELL)
+    product_type: str = ''  # productType (CNC/INTRADAY/MARGIN/MTF/CO/BO)
+    order_type: str = ''  # orderType (LIMIT/MARKET/STOP_LOSS/STOP_LOSS_MARKET)
+    
+    # Quantity and pricing
+    quantity: int = 0  # tradedQuantity
+    price: float = 0.0  # tradedPrice
+    
+    # Timestamps
+    trade_ts: int = 0  # Trade timestamp (internal)
+    created_at: int = 0  # createTime (epoch)
+    updated_at: Optional[int] = None  # updateTime (epoch)
+    exchange_time: Optional[int] = None  # exchangeTime (epoch)
+    
+    # F&O derivatives info
+    drv_expiry_date: Optional[int] = None  # drvExpiryDate (epoch)
+    drv_option_type: Optional[str] = None  # drvOptionType (CALL/PUT)
+    drv_strike_price: Optional[float] = None  # drvStrikePrice
+    
+    # Raw data
+    raw_data: Optional[str] = None  # JSON
     
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -112,11 +189,23 @@ class Trade:
             'id': self.id,
             'order_id': self.order_id,
             'account_type': self.account_type,
-            'trade_ts': self.trade_ts,
+            'exchange_order_id': self.exchange_order_id,
+            'exchange_trade_id': self.exchange_trade_id,
+            'security_id': self.security_id,
+            'exchange_segment': self.exchange_segment,
+            'trading_symbol': self.trading_symbol,
+            'transaction_type': self.transaction_type,
+            'product_type': self.product_type,
+            'order_type': self.order_type,
             'quantity': self.quantity,
             'price': self.price,
-            'exchange_segment': self.exchange_segment,
-            'security_id': self.security_id,
+            'trade_ts': self.trade_ts,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
+            'exchange_time': self.exchange_time,
+            'drv_expiry_date': self.drv_expiry_date,
+            'drv_option_type': self.drv_option_type,
+            'drv_strike_price': self.drv_strike_price,
             'raw_data': self.raw_data
         }
 

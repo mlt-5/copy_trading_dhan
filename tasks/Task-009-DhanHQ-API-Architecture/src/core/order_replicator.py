@@ -148,7 +148,9 @@ class OrderReplicator:
                     price=price,
                     trigger_price=trigger_price,
                     validity=validity,
-                    disclosed_qty=follower_disclosed_qty
+                    disclosed_qty=follower_disclosed_qty,
+                    after_market_order=leader_order_data.get('afterMarketOrder', False),
+                    amo_time=leader_order_data.get('amoTime')
                 )
             
             if follower_order_id:
@@ -194,7 +196,9 @@ class OrderReplicator:
         price: float,
         trigger_price: Optional[float],
         validity: str,
-        disclosed_qty: Optional[int]
+        disclosed_qty: Optional[int],
+        after_market_order: bool = False,
+        amo_time: Optional[str] = None
     ) -> Optional[str]:
         """Place basic order using OrdersAPI."""
         try:
@@ -208,7 +212,9 @@ class OrderReplicator:
                 price=price,
                 trigger_price=trigger_price,
                 disclosed_quantity=disclosed_qty,
-                validity=validity
+                validity=validity,
+                after_market_order=after_market_order,
+                amo_time=amo_time
             )
             
             if response and 'orderId' in response:

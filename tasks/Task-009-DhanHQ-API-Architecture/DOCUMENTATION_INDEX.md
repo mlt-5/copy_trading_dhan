@@ -4,7 +4,7 @@
 
 ---
 
-## 📚 **Essential Documentation** (14 Files)
+## 📚 **Essential Documentation** (17 Files)
 
 ### **Getting Started** (4 files)
 
@@ -107,9 +107,34 @@
 
 ---
 
+### **Database** (3 files)
+
+15. **[DATABASE_SCHEMA_V3.md](./DATABASE_SCHEMA_V3.md)** ⭐ NEW
+    - Complete schema documentation (750 lines)
+    - All 23 tables and 11 views
+    - Usage examples
+    - Migration guide
+    - Performance tips
+    - Security guidelines
+
+16. **[DATABASE_QUICK_REFERENCE.md](./DATABASE_QUICK_REFERENCE.md)** ⭐ NEW
+    - Quick reference guide
+    - Common operations
+    - Python API examples
+    - SQL query examples
+    - Maintenance procedures
+    - Troubleshooting
+
+17. **[src/core/database/schema_v3_comprehensive.sql](./src/core/database/schema_v3_comprehensive.sql)** ⭐ NEW
+    - Complete SQL schema (1,080 lines)
+    - 23 tables for all DhanHQ modules
+    - 11 views for common queries
+    - Indexes and constraints
+    - Initial configuration
+
 ### **Specialized** (1 file)
 
-15. **[deleted/ARCHIVE_NOTE.md](./deleted/ARCHIVE_NOTE.md)**
+18. **[deleted/ARCHIVE_NOTE.md](./deleted/ARCHIVE_NOTE.md)**
     - Archive system
     - Soft-delete structure
     - Retention policy
@@ -141,6 +166,11 @@
 ├── TODO.md (tasks - all complete)
 └── errors.md (error tracking)
 
+💾 Database ⭐ NEW
+├── DATABASE_SCHEMA_V3.md (complete schema docs)
+├── DATABASE_QUICK_REFERENCE.md (quick reference)
+└── schema_v3_comprehensive.sql (SQL schema)
+
 🗃️ Archive
 └── deleted/ARCHIVE_NOTE.md (archive system)
 ```
@@ -168,6 +198,11 @@
 1. EXECUTIVE_SUMMARY.md → Project overview
 2. changelogs.md → Change history
 3. TODO.md → Task completion status
+
+### **For Database:**
+1. DATABASE_QUICK_REFERENCE.md → Quick start
+2. DATABASE_SCHEMA_V3.md → Complete docs
+3. schema_v3_comprehensive.sql → SQL schema
 
 ---
 
@@ -215,6 +250,8 @@
 | **Task status** | TODO.md |
 | **Examples** | examples/README.md |
 | **Test suite** | tests/README.md |
+| **Database schema** | DATABASE_SCHEMA_V3.md |
+| **Database quick ref** | DATABASE_QUICK_REFERENCE.md |
 
 ---
 
@@ -232,8 +269,8 @@
 ## 📊 **Documentation Stats**
 
 ```
-Total Files:          14
-Main Directory:       11 files
+Total Files:          17 (+3 database docs)
+Main Directory:       14 files
 Subdirectories:       3 files (examples/, tests/, deleted/)
 
 Categories:
@@ -241,9 +278,10 @@ Categories:
 - Deployment:         2 files
 - Development:        3 files
 - Reference:          5 files
+- Database:           3 files ⭐ NEW
 
-Total Lines:          ~4,500+ lines of documentation
-Average per File:     ~320 lines
+Total Lines:          ~6,900+ lines of documentation (+2,400)
+Average per File:     ~406 lines
 ```
 
 ---
@@ -251,17 +289,19 @@ Average per File:     ~320 lines
 ## 🎉 **Result**
 
 **Before**: 24 documentation files with significant overlap  
-**After**: 14 essential files with unique, specific content
+**After**: 17 essential files with unique, specific content  
+**Added**: 3 comprehensive database documentation files
 
 **Benefits**:
-- ✅ 42% fewer files
+- ✅ 29% fewer files (vs original 24)
 - ✅ Zero duplicate content
 - ✅ Clearer organization
+- ✅ Complete database documentation
 - ✅ Easier to maintain
 - ✅ Faster to find information
 
 ---
 
-**Last Updated**: October 4, 2025  
-**Status**: ✅ Documentation Consolidated
+**Last Updated**: October 3, 2025  
+**Status**: ✅ Documentation Complete with Database Coverage
 
