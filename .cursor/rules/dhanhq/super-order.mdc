@@ -1,0 +1,18 @@
+---
+description: DhanHQ v2 Super Orders (Cover/Bracket) specifics
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Super Order.
+- Confirm supported legs, required/optional fields, and constraints from docs.
+
+## Implementation notes (verify exact keys)
+- For BO/CO, validate trigger/stoploss/target combinations as per docs.
+- Enforce exchange/product compatibility and lot sizes.
+- Handle modify/cancel rules for legs; propagate updates correctly.
+
+## Links
+- Super Order: [link](https://dhanhq.co/docs/v2/super-order/)
+@docs_links.txt
+

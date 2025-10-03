@@ -1,0 +1,71 @@
+# Development Dependencies for DhanHQ Copy Trading System
+
+# Include base requirements
+-r requirements.txt
+
+# ============================================================================
+# Testing Framework
+# ============================================================================
+
+# Core testing framework
+pytest>=7.4.0
+
+# Coverage reporting
+pytest-cov>=4.1.0
+
+# Mock/stub utilities
+pytest-mock>=3.11.1
+
+# Test timeouts
+pytest-timeout>=2.1.0
+
+# ============================================================================
+# Code Quality Tools
+# ============================================================================
+
+# Code formatting
+black>=23.0.0
+
+# Linting
+pylint>=3.0.0
+flake8>=6.0.0
+flake8-docstrings>=1.7.0
+
+# Type checking
+mypy>=1.5.0
+types-requests>=2.31.0
+
+# ============================================================================
+# Development Utilities
+# ============================================================================
+
+# Interactive Python shell
+ipython>=8.14.0
+
+# Code profiling
+py-spy>=0.3.14
+
+# ============================================================================
+# Usage
+# ============================================================================
+#
+# Install development dependencies:
+#   pip install -r requirements-dev.txt
+#
+# Run tests:
+#   pytest
+#
+# Run tests with coverage:
+#   pytest --cov=src --cov-report=html
+#
+# Format code:
+#   black src/ tests/
+#
+# Type check:
+#   mypy src/
+#
+# Lint:
+#   pylint src/
+#   flake8 src/
+#
+

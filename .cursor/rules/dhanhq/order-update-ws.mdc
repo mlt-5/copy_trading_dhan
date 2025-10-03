@@ -1,0 +1,18 @@
+---
+description: DhanHQ v2 Live Order Updates (WebSocket)
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Order Update.
+- Confirm exact WS URL, auth flow, subscribe/unsubscribe payloads, and heartbeat intervals.
+
+## Client behavior
+- Connect → authenticate (if required) → subscribe → handle heartbeats/ping-pong.
+- Backoff reconnect with jitter and cap; resubscribe after reconnect.
+- De-duplicate updates using event id/sequence or timestamps.
+
+## Links
+- Order Update WS: [link](https://dhanhq.co/docs/v2/order-update/)
+@docs_links.txt
+

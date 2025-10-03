@@ -2,6 +2,7 @@
 Database Manager Module
 
 SQLite database operations with WAL mode, prepared statements, and connection pooling.
+Updated for new architecture with proper imports from core.models.
 """
 
 import sqlite3
@@ -11,7 +12,7 @@ import json
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from ..config import get_config
+from .config import get_config
 from .models import Order, OrderEvent, Trade, Position, Funds, Instrument, CopyMapping
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ class DatabaseManager:
     
     def initialize_schema(self) -> None:
         """Initialize database schema from SQL file."""
-        schema_path = Path(__file__).parent / "schema.sql"
+        schema_path = Path(__file__).parent / "database" / "schema.sql"
         
         logger.info("Initializing database schema")
         
@@ -141,8 +142,7 @@ class DatabaseManager:
     
     def save_bracket_order_leg(self, leg_data: Dict[str, Any]) -> bool:
         """
-        ✅ PATCH-003: Save bracket order leg to tracking table.
-        Fixed field name: leg_order_id (per schema_v2_co_bo.sql Line 28)
+        Save bracket order leg to tracking table.
         
         Args:
             leg_data: Dictionary with parent_order_id, leg_type, leg_order_id, status, etc.
@@ -155,8 +155,8 @@ class DatabaseManager:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 leg_data.get('parent_order_id'),
-                leg_data.get('leg_type'),  # 'entry', 'target', 'stop_loss'
-                leg_data.get('leg_order_id'),  # ✅ PATCH-003: Fixed field name
+                leg_data.get('leg_type'),
+                leg_data.get('leg_order_id'),
                 leg_data.get('status', 'PENDING'),
                 leg_data.get('quantity', 0),
                 leg_data.get('price', 0),
@@ -173,8 +173,7 @@ class DatabaseManager:
     
     def get_bracket_order_legs(self, parent_order_id: str) -> List[Dict[str, Any]]:
         """
-        ✅ PATCH-003: Retrieve all legs for a bracket order.
-        Fixed field name: leg_order_id (per schema_v2_co_bo.sql Line 28)
+        Retrieve all legs for a bracket order.
         
         Args:
             parent_order_id: The parent BO order ID
@@ -194,7 +193,7 @@ class DatabaseManager:
                     'id': row[0],
                     'parent_order_id': row[1],
                     'leg_type': row[2],
-                    'leg_order_id': row[3],  # ✅ PATCH-003: Fixed field name
+                    'leg_order_id': row[3],
                     'status': row[4],
                     'quantity': row[5],
                     'price': row[6],
@@ -209,7 +208,7 @@ class DatabaseManager:
     
     def update_bracket_order_leg_status(self, leg_id: int, status: str) -> bool:
         """
-        ✅ TASK-006: Update status of a bracket order leg.
+        Update status of a bracket order leg.
         
         Args:
             leg_id: Database ID of the leg
@@ -645,5 +644,4 @@ def get_db() -> DatabaseManager:
     if _db_manager is None:
         raise ValueError("Database not initialized. Call init_database() first.")
     return _db_manager
-
 

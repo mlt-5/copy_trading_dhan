@@ -30,7 +30,7 @@ alwaysApply: true
 
 ### Audit & Documentation
 - Maintain **changelogs**, **error logs**, and **TODO lists**
-- Document all significant changes and decisions
+- Document all significant changes and decisions in a summarised form 
 - Keep comprehensive project history
 
 ### Soft Deletes Only
@@ -238,6 +238,11 @@ mv -f "$file" "$dest"
 - Code review completed
 - Performance requirements met
 - Security requirements satisfied
+
+### Documentation
+- Do not create multiple docummentaion files prefer updating existing files if  already there 
+- do not create multiple files with similar contents 
+- no duplication in documemntation 
 
 ---
 

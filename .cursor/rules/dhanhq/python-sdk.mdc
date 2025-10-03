@@ -1,0 +1,18 @@
+---
+description: DhanHQ v2 Python SDK usage
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → PyPI SDK page.
+- Pin a known-good SDK version; align args with SDK docs.
+
+## Guidance
+- Read credentials from env; do not hardcode.
+- Wrap SDK calls in thin adapters for validation and logging.
+- Respect rate limits; add bounded retries on transient errors.
+
+## Links
+- PyPI: [link](https://pypi.org/project/dhanhq/)
+@docs_links.txt
+

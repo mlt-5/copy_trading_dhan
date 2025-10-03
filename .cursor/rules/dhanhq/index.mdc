@@ -1,0 +1,22 @@
+---
+description: DhanHQ v2 Rule Index
+globs:
+alwaysApply: true
+---
+
+- Central index for DhanHQ rules. All specifics must be verified via @docs_links.txt before coding.
+
+Included rules:
+@dhanhq/auth.mdc
+@dhanhq/orders.mdc
+@dhanhq/super-order.mdc
+@dhanhq/forever.mdc
+@dhanhq/order-update-ws.mdc
+@dhanhq/data-apis.mdc
+@dhanhq/portfolio-edis-traders.mdc
+@dhanhq/funds-statements.mdc
+@dhanhq/postback.mdc
+@dhanhq/python-sdk.mdc
+
+@docs_links.txt
+

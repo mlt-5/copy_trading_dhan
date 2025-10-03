@@ -6,16 +6,18 @@ Calculate appropriate order quantities for follower account based on:
 - Risk management limits
 - Options lot sizes
 - Configured sizing strategy
+
+Updated for new architecture with integration to FundsAPI.
 """
 
 import logging
 import math
 import time
 from typing import Optional
-from dhanhq import dhanhq
 
-from ..config import SizingStrategy, get_config
-from ..database import DatabaseManager, get_db, Funds, Instrument
+from .config import SizingStrategy, get_config
+from .database import DatabaseManager, get_db
+from .models import Funds, Instrument
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +30,14 @@ class PositionSizer:
     - Capital proportional: Scale by capital ratio
     - Fixed ratio: Fixed multiplier
     - Risk-based: Based on % of capital at risk
+    
+    Integrates with DhanHQ FundsAPI for real-time balance checking.
     """
     
     def __init__(
         self,
-        leader_client: dhanhq,
-        follower_client: dhanhq,
+        leader_funds_api,  # FundsAPI instance
+        follower_funds_api,  # FundsAPI instance
         db: DatabaseManager,
         strategy: SizingStrategy,
         copy_ratio: Optional[float] = None,
@@ -43,15 +47,15 @@ class PositionSizer:
         Initialize position sizer.
         
         Args:
-            leader_client: DhanHQ client for leader account
-            follower_client: DhanHQ client for follower account
+            leader_funds_api: FundsAPI instance for leader account
+            follower_funds_api: FundsAPI instance for follower account
             db: Database manager
             strategy: Position sizing strategy
             copy_ratio: Fixed ratio (required for fixed_ratio strategy)
             max_position_size_pct: Max position size as % of capital
         """
-        self.leader_client = leader_client
-        self.follower_client = follower_client
+        self.leader_funds_api = leader_funds_api
+        self.follower_funds_api = follower_funds_api
         self.db = db
         self.strategy = strategy
         self.copy_ratio = copy_ratio
@@ -80,9 +84,9 @@ class PositionSizer:
         if force or (current_time - self._funds_last_updated) > self._funds_ttl:
             logger.debug("Refreshing fund limits")
             
-            # Fetch from API
-            leader_funds_data = self.leader_client.get_fund_limits()
-            follower_funds_data = self.follower_client.get_fund_limits()
+            # Fetch from API using new FundsAPI
+            leader_funds_data = self.leader_funds_api.get_fund_limits()
+            follower_funds_data = self.follower_funds_api.get_fund_limits()
             
             # Parse and create Funds objects
             self._leader_funds = self._parse_funds_response(leader_funds_data, 'leader')
@@ -106,7 +110,7 @@ class PositionSizer:
         Parse DhanHQ funds response into Funds object.
         
         Args:
-            funds_data: API response
+            funds_data: API response from FundsAPI
             account_type: 'leader' or 'follower'
         
         Returns:
@@ -114,7 +118,7 @@ class PositionSizer:
         """
         import json
         
-        # ✅ PATCH-001: Fixed typo - availableBalance (per DhanHQ v2 Funds API)
+        # DhanHQ v2 Funds API returns 'availableBalance'
         available = funds_data.get('availableBalance', 0.0)
         if available == 0.0:
             available = funds_data.get('available_balance', 0.0)
@@ -402,15 +406,15 @@ def get_position_sizer() -> PositionSizer:
 
 
 def initialize_position_sizer(
-    leader_client: dhanhq,
-    follower_client: dhanhq
+    leader_funds_api,
+    follower_funds_api
 ) -> PositionSizer:
     """
     Initialize position sizer (call after auth and db init).
     
     Args:
-        leader_client: Leader DhanHQ client
-        follower_client: Follower DhanHQ client
+        leader_funds_api: FundsAPI instance for leader
+        follower_funds_api: FundsAPI instance for follower
     
     Returns:
         PositionSizer instance
@@ -421,8 +425,8 @@ def initialize_position_sizer(
     db = get_db()
     
     _position_sizer = PositionSizer(
-        leader_client=leader_client,
-        follower_client=follower_client,
+        leader_funds_api=leader_funds_api,
+        follower_funds_api=follower_funds_api,
         db=db,
         strategy=system_config.sizing_strategy,
         copy_ratio=system_config.copy_ratio,
@@ -430,5 +434,4 @@ def initialize_position_sizer(
     )
     
     return _position_sizer
-
 

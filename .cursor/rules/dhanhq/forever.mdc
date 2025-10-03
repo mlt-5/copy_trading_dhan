@@ -1,0 +1,17 @@
+---
+description: DhanHQ v2 Forever (GTT) orders
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Forever.
+- Confirm single vs OCO variants, trigger schema, cancel/modify behaviors.
+
+## Implementation notes (verify exact keys)
+- Validate triggers and price bands as documented.
+- Persist correlation/ids for later cancel/modify.
+
+## Links
+- Forever: [link](https://dhanhq.co/docs/v2/forever/)
+@docs_links.txt
+

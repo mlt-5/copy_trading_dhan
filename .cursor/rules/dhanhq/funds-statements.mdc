@@ -1,0 +1,18 @@
+---
+description: DhanHQ v2 Funds & Statements
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Funds, Statements.
+- Confirm endpoints, params, pagination, and response fields before coding.
+
+## Guidance
+- Funds: fetch limits/balances; normalize numerics; capture timestamps.
+- Statements: implement pagination and date filters per docs; cap iterations.
+
+## Links
+- Funds: [link](https://dhanhq.co/docs/v2/funds/)
+- Statements: [link](https://dhanhq.co/docs/v2/statements/)
+@docs_links.txt
+

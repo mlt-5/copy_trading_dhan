@@ -1,0 +1,18 @@
+---
+description: DhanHQ v2 Postback (webhook) order updates
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Postback.
+- Confirm payload schema, retry/ack behavior, and any signature/auth verification.
+
+## Implementation guidance
+- Verify authenticity if docs provide signature/secret.
+- Idempotently process updates using event id/sequence.
+- Log with redactions; avoid storing secrets.
+
+## Links
+- Postback: [link](https://dhanhq.co/docs/v2/postback/)
+@docs_links.txt
+

@@ -1,0 +1,24 @@
+---
+description: DhanHQ v2 Portfolio, eDIS, and Traders Control
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Portfolio, eDIS, Traders Control.
+- Confirm exact endpoints, fields, and rate limits from docs.
+
+## Portfolio
+- Positions, holdings, funds: mirror response shapes; guard against nulls; normalize numeric conversions.
+
+## eDIS
+- TPIN generation and flows; confirm required params; handle inquiry/polling behavior.
+
+## Traders Control
+- Kill switch and related risk controls; ensure proper auth and audit logging.
+
+## Links
+- Portfolio: [link](https://dhanhq.co/docs/v2/portfolio/)
+- eDIS: [link](https://dhanhq.co/docs/v2/edis/)
+- Traders Control: [link](https://dhanhq.co/docs/v2/traders-control/)
+@docs_links.txt
+

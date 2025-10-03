@@ -1,0 +1,30 @@
+---
+description: DhanHQ v2 Orders (place/modify/cancel) and validation
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Orders, Swagger, Releases.
+- Use exact request/response shapes and enums from docs; do not infer.
+
+## Request model (verify exact keys and enums)
+- Side, instrument identifier, quantity, price fields.
+- Product, validity/TIF, trigger price for SL types.
+- AMO/pre-open tags if documented; Forever/OCO specifics if applicable.
+
+## Validation rules (confirm per docs)
+- MARKET: no price.
+- SL/SL-L: trigger required; validate trigger vs price bands if provided.
+- Modify semantics (e.g., `quantity` as total placed quantity) and exchange/state constraints.
+- Idempotency key if supported.
+
+## Lifecycle handling
+- Capture order id; poll or subscribe for updates until terminal state.
+- Map statuses to typed enums; surface actionable reject reasons.
+
+## Links
+- Orders: [link](https://dhanhq.co/docs/v2/orders/)
+- Releases/Breaking changes: [link](https://dhanhq.co/docs/v2/)
+- Swagger/OpenAPI: [link](https://api.dhan.co/v2/#/)
+@docs_links.txt
+

@@ -1,0 +1,58 @@
+# DhanHQ Copy Trading System - Python Dependencies
+
+# ============================================================================
+# Core Dependencies
+# ============================================================================
+
+# DhanHQ Python SDK
+dhanhq>=2.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# WebSocket client for real-time order updates
+websocket-client>=1.6.0
+
+# ============================================================================
+# Optional Dependencies (Recommended)
+# ============================================================================
+
+# HTTP requests library (used by dhanhq)
+requests>=2.31.0
+
+# JSON handling enhancements
+# ujson>=5.8.0
+
+# ============================================================================
+# Development Dependencies (Optional - install with: pip install -r requirements-dev.txt)
+# ============================================================================
+
+# Testing (included in requirements-dev.txt)
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
+# pytest-mock>=3.11.1
+# pytest-timeout>=2.1.0
+
+# Code formatting (included in requirements-dev.txt)
+# black>=23.0.0
+
+# Linting (included in requirements-dev.txt)
+# pylint>=3.0.0
+# flake8>=6.0.0
+
+# Type checking (included in requirements-dev.txt)
+# mypy>=1.5.0
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 
+# Installation:
+#   pip install -r requirements.txt
+#
+# For development environment (with optional tools):
+#   pip install -r requirements.txt black pylint pytest
+#
+# Python version: 3.8+
+#
+

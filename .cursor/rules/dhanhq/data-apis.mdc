@@ -1,0 +1,20 @@
+---
+description: DhanHQ v2 Data APIs (instruments, quotes, historical, option chain)
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Data/Market feed/Historical/Option Chain sections.
+- Confirm exact endpoints, request params, batching limits, and response fields.
+
+## Guidance
+- Instruments: fetch and cache with TTL; validate exchange+segment combos per docs.
+- Quotes & Snapshots: implement LTP/Quote/Depth; chunk requests to max instruments per call.
+- Historical: validate ranges; respect pagination/backoff; parse timezone; normalize precision to tick sizes.
+- Option Chain: filter by expiry/strike/type; consume greeks only if provided; do not guess.
+
+## Links
+- Main docs: [link](https://dhanhq.co/docs/v2/)
+- Swagger/OpenAPI: [link](https://api.dhan.co/v2/#/)
+@docs_links.txt
+

@@ -1,0 +1,29 @@
+---
+description: DhanHQ v2 Authentication & Configuration
+globs:
+alwaysApply: false
+---
+
+- Source of truth: @docs_links.txt → Authentication, Swagger.
+- Do not guess header names, token scheme, or base URLs. Verify from docs before coding.
+
+## What to confirm from docs before use
+- Exact REST auth header name and token scheme (e.g., header key and whether Bearer prefix is required).
+- Exact base REST URL and any sandbox vs production variants.
+- If WebSocket auth differs, confirm WS URL and auth parameters.
+
+## Implementation guidance
+- Centralize config in one module; read env at runtime to support token rotation.
+- Define constants for required header keys and token prefix once (e.g., `DHAN_AUTH_HEADER`, `DHAN_TOKEN_PREFIX`).
+- Env variables (verify names via docs before use):
+  - `DHAN_API_BASE_URL`
+  - `DHAN_ACCESS_TOKEN` (or as per docs)
+  - Optional: `DHAN_WS_URL`, `DHAN_ENV=prod|sandbox`
+- HTTP client: default timeout, descriptive User-Agent, limited retries on idempotent requests, structured error parsing.
+- Never log full tokens; redact secrets in all logs and audits.
+
+## Links
+- Authentication: [link](https://dhanhq.co/docs/v2/authentication/)
+- Swagger/OpenAPI: [link](https://api.dhan.co/v2/#/)
+@docs_links.txt
+

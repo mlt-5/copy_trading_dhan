@@ -1,0 +1,34 @@
+# DhanHQ Copy Trading System - Manifest for Package Distribution
+
+# Include documentation
+include README.md
+include LICENSE
+include QUICKSTART.md
+include SETUP.md
+include DEPLOYMENT.md
+include MIGRATION_GUIDE.md
+include TESTING.md
+
+# Include configuration examples
+include env.example
+include requirements.txt
+include requirements-dev.txt
+include pytest.ini
+
+# Include SQL schemas
+recursive-include src/core/database *.sql
+
+# Include package data
+recursive-include src *.py
+
+# Exclude unnecessary files
+exclude .gitignore
+exclude TODO.md
+exclude changelogs.md
+exclude errors.md
+recursive-exclude tests *
+recursive-exclude examples *
+recursive-exclude deleted *
+recursive-exclude __pycache__ *
+recursive-exclude *.pyc
+
